@@ -2026,10 +2026,33 @@ public class SmartMovingSelf extends SmartMoving implements ISmartMovingSelf
 				maxExhaustionForAction = Math.min(maxExhaustionForAction, maxExhausionForJump + Config.getJumpExhaustionGain(speed, type, jumpCharge));
 			}
 
-			float jumpFactor = sp.isPotionActive(Potion.jump) ? 1 + (sp.getActivePotionEffect(Potion.jump).getAmplifier() + 1) * 0.2F : 1;
-			float horizontalJumpFactor = Config.getJumpHorizontalFactor(speed, type) * jumpFactor;
-			float verticalJumpFactor = Config.getJumpVerticalFactor(speed, type) * jumpFactor;
-			float jumpChargeFactor = charged ? Config.getJumpChargeFactor(jumpCharge) : 1F;
+			float jumpFactor = sp.isPotionActive(Potion.jump)
+					? 1 + (sp.getActivePotionEffect(Potion.jump).getAmplifier() + 1) * 0.2F
+					: 1;
+
+			// Base jump scaling on potion / attribute movement speed only,
+			// so Slowness has an impact on jump distance.
+			float potionFactor = getPotionSpeedFactor(); // already includes Slowness / Speed etc.
+
+			// Clamp to [0, 1]
+			if (potionFactor > 1.0F) {
+				potionFactor = 1.0F;
+			}
+			if (potionFactor < 0.0F) {
+				potionFactor = 0.0F;
+			}
+
+
+			float jumpSpeedFactor = potionFactor * potionFactor * potionFactor;
+
+			// Tiny minimum so you can still move a bit even with huge Slowness.
+			if (jumpSpeedFactor < 0.0001F) {
+				jumpSpeedFactor = 0.0001F;
+			}
+
+			float horizontalJumpFactor = Config.getJumpHorizontalFactor(speed, type) * jumpFactor * jumpSpeedFactor;
+			float verticalJumpFactor   = Config.getJumpVerticalFactor(speed, type) * jumpFactor;
+			float jumpChargeFactor     = charged ? Config.getJumpChargeFactor(jumpCharge) : 1F;
 
 			if(!up)
 			{
@@ -2039,6 +2062,10 @@ public class SmartMovingSelf extends SmartMoving implements ISmartMovingSelf
 
 			Double maxHorizontalMotion = null;
 			double horizontalMotion = MathHelper.sqrt_double(jumpMotionX * jumpMotionX + jumpMotionZ * jumpMotionZ);
+
+			// Also scale any pre-existing horizontal motion by the same (stronger) factor
+			horizontalMotion *= jumpSpeedFactor;
+
 			double verticalMotion = -0.078 + 0.498 * verticalJumpFactor * jumpChargeFactor;
 
 			if(horizontalJumpFactor > 1F && !sp.isCollidedHorizontally)
@@ -2056,8 +2083,9 @@ public class SmartMovingSelf extends SmartMoving implements ISmartMovingSelf
 				if (sp.isSprinting())
 				{
 					float f = sp.rotationYaw * 0.017453292F;
-					sp.motionX -= (double)(MathHelper.sin(f) * 0.2F);
-					sp.motionZ += (double)(MathHelper.cos(f) * 0.2F);
+					float vanillaBoost = 0.2F * jumpSpeedFactor; // stronger dependence on current speed
+					sp.motionX -= (double)(MathHelper.sin(f) * vanillaBoost);
+					sp.motionZ += (double)(MathHelper.cos(f) * vanillaBoost);
 				}
 			}
 			else
