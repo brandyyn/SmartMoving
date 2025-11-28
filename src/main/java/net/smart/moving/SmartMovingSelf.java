@@ -3306,7 +3306,15 @@ public class SmartMovingSelf extends SmartMoving implements ISmartMovingSelf
 
 	public float getLandMovementFactor()
 	{
-		return sp.getAIMoveSpeed();
+		float speed = sp.getAIMoveSpeed();
+
+		// Prevent zero / negative movement speeds from breaking movement math.
+		// This keeps you able to move and jump slightly even with very high slowness.
+		if (speed <= 0.0F) {
+			speed = 0.005F; // tiny but positive
+		}
+
+		return speed;
 	}
 
 	public void setLandMovementFactor(float landMovementFactor)
